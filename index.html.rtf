@@ -1,0 +1,264 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2580
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <html><head><script>(function() \{\
+  const originalConsoleLog = console.log;\
+  const originalConsoleError = console.error;\
+\
+  function stringifyArgs(args) \{\
+    return args\
+      .map((arg) => \{\
+        if (typeof arg === 'object') \{\
+          try \{\
+            return JSON.stringify(arg);\
+          \} catch (error) \{\
+            return '[Circular Object]';\
+          \}\
+        \} else \{\
+          return String(arg);\
+        \}\
+      \})\
+      .join(' ');\
+  \}\
+\
+  console.log = function(...args) \{\
+    const logString = stringifyArgs(args);\
+    window.parent.postMessage(\{ type: 'log', message: logString \}, '*');\
+    originalConsoleLog.apply(console, args);\
+  \};\
+\
+  console.error = function(...args) \{\
+    const errorString = stringifyArgs(args);\
+    window.parent.postMessage(\{ type: 'error', message: errorString \}, '*');\
+    originalConsoleError.apply(console, args);\
+  \};\
+\
+  window.addEventListener('error', function(event) \{\
+    const errorString = event.message + ' (' + event.filename + ':' + event.lineno + ':' + event.colno + ') ' + (event.error ? event.error.stack : '');\
+    window.parent.postMessage(\{ type: 'error', message: errorString \}, '*');\
+  \});\
+\
+\})();</script>\
+<title>Snake Game</title>\
+<style>\
+  body \{\
+    background-color: #e8f0fa;\
+    display: flex;\
+    flex-direction: column;\
+    align-items: center;\
+    justify-content: center;\
+    height: 100vh;\
+    margin: 0;\
+    font-family: Arial, sans-serif;\
+  \}\
+  #game-board \{\
+    background-color: #4CAF50;\
+    border: 4px solid #388E3C;\
+    margin-bottom: 20px;\
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.1);\
+  \}\
+  #message-box \{\
+    font-size: 24px;\
+    font-weight: bold;\
+    color: #555;\
+    margin-bottom: 10px;\
+    min-height: 30px;\
+  \}\
+  #button-container \{\
+    display: flex;\
+    gap: 10px;\
+  \}\
+  button \{\
+    background-color: #008CBA;\
+    color: white;\
+    border: none;\
+    padding: 10px 20px;\
+    text-align: center;\
+    text-decoration: none;\
+    display: inline-block;\
+    font-size: 16px;\
+    cursor: pointer;\
+    border-radius: 5px;\
+    transition: background-color 0.3s ease;\
+  \}\
+  button:hover \{\
+    background-color: #007BFF;\
+  \}\
+  button:disabled \{\
+    background-color: #cccccc;\
+    cursor: not-allowed;\
+  \}\
+</style>\
+</head>\
+<body>\
+  <canvas id="game-board" width="400" height="400"></canvas>\
+  <div id="message-box"></div>\
+  <div id="button-container">\
+    <button id="start-button">Start</button>\
+    <button id="pause-button">Pause</button>\
+    <button id="reset-button">Reset</button>\
+  </div>\
+  <script>\
+    const canvas = document.getElementById("game-board");\
+    const ctx = canvas.getContext("2d");\
+    const messageBox = document.getElementById("message-box");\
+    const startButton = document.getElementById("start-button");\
+    const pauseButton = document.getElementById("pause-button");\
+    const resetButton = document.getElementById("reset-button");\
+\
+    const gridSize = 20;\
+    let snake = [\{ x: 10, y: 10 \}];\
+    let food = \{ x: 15, y: 15 \};\
+    let direction = "right";\
+    let gameSpeed = 100;\
+    let gameRunning = false;\
+    let gameInterval;\
+    let score = 0;\
+\
+    function draw() \{\
+      ctx.clearRect(0, 0, canvas.width, canvas.height);\
+\
+      for (let i = 0; i < snake.length; i++) \{\
+        ctx.fillStyle = i === 0 ? "#2196F3" : "#0D47A1";\
+        ctx.fillRect(\
+          snake[i].x * gridSize,\
+          snake[i].y * gridSize,\
+          gridSize - 2,\
+          gridSize - 2\
+        );\
+        ctx.strokeStyle = "#FFF";\
+        ctx.strokeRect(\
+          snake[i].x * gridSize,\
+          snake[i].y * gridSize,\
+          gridSize - 2,\
+          gridSize - 2\
+        );\
+      \}\
+\
+      ctx.fillStyle = "#FFEB3B";\
+      ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);\
+      ctx.strokeStyle = "#FFF";\
+      ctx.strokeRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);\
+    \}\
+\
+    function update() \{\
+      if (!gameRunning) return;\
+\
+      const head = \{ x: snake[0].x, y: snake[0].y \};\
+\
+      switch (direction) \{\
+        case "up":\
+          head.y--;\
+          break;\
+        case "down":\
+          head.y++;\
+          break;\
+        case "left":\
+          head.x--;\
+          break;\
+        case "right":\
+          head.x++;\
+          break;\
+      \}\
+\
+      if (\
+        head.x < 0 ||\
+        head.x >= canvas.width / gridSize ||\
+        head.y < 0 ||\
+        head.y >= canvas.height / gridSize ||\
+        checkCollision(head)\
+      ) \{\
+        gameOver();\
+        return;\
+      \}\
+\
+      snake.unshift(head);\
+\
+      if (head.x === food.x && head.y === food.y) \{\
+        score++;\
+        food = \{\
+          x: Math.floor(Math.random() * (canvas.width / gridSize)),\
+          y: Math.floor(Math.random() * (canvas.height / gridSize)),\
+        \};\
+      \} else \{\
+        snake.pop();\
+      \}\
+\
+      messageBox.textContent = `Score: $\{score\}`;\
+      draw();\
+    \}\
+\
+    function checkCollision(head) \{\
+      for (let i = 1; i < snake.length; i++) \{\
+        if (head.x === snake[i].x && head.y === snake[i].y) \{\
+          return true;\
+        \}\
+      \}\
+      return false;\
+    \}\
+\
+    function startGame() \{\
+      if (gameRunning) return;\
+      gameRunning = true;\
+      startButton.disabled = true;\
+      pauseButton.disabled = false;\
+      messageBox.textContent = "Game Started!";\
+      gameInterval = setInterval(update, gameSpeed);\
+      score = 0;\
+    \}\
+\
+    function pauseGame() \{\
+      gameRunning = false;\
+      startButton.disabled = false;\
+      pauseButton.disabled = true;\
+      messageBox.textContent = "Game Paused!";\
+      clearInterval(gameInterval);\
+    \}\
+\
+    function gameOver() \{\
+      gameRunning = false;\
+      startButton.disabled = false;\
+      pauseButton.disabled = true;\
+      messageBox.textContent = `Game Over! Score: $\{score\} Press Start to play again.`;\
+      clearInterval(gameInterval);\
+      snake = [\{ x: 10, y: 10 \}];\
+      direction = "right";\
+    \}\
+\
+    function resetGame() \{\
+      gameOver();\
+      score = 0;\
+      messageBox.textContent = "Game Reset! Press Start to play.";\
+    \}\
+\
+    document.addEventListener("keydown", (e) => \{\
+      if (!gameRunning) return;\
+      switch (e.key) \{\
+        case "ArrowUp":\
+          if (direction !== "down") direction = "up";\
+          break;\
+        case "ArrowDown":\
+          if (direction !== "up") direction = "down";\
+          break;\
+        case "ArrowLeft":\
+          if (direction !== "right") direction = "left";\
+          break;\
+        case "ArrowRight":\
+          if (direction !== "left") direction = "right";\
+          break;\
+      \}\
+    \});\
+\
+    startButton.addEventListener("click", startGame);\
+    pauseButton.addEventListener("click", pauseGame);\
+    resetButton.addEventListener("click", resetGame);\
+\
+    startGame();\
+  </script>\
+\
+\
+</body></html>}
